@@ -5,9 +5,10 @@ from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.types import Tool
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage
-from typing import Optional
+from pydantic import BaseModel
+from typing import Type, Optional
+from agent_output import ReviewOutput
 import json
-
 
 class McpClientStreamableHttp:
     def __init__(self, agentUrl: str, agentKey: str, model: str):
@@ -28,7 +29,7 @@ class McpClientStreamableHttp:
             url=server_url,
             http_client=httpClient or {},
         )
-        read_stream, write_stream, _ = await self._streams_context.__aenter__()
+        read_stream, write_stream = await self._streams_context.__aenter__()
 
         self._session_context = ClientSession(read_stream, write_stream)
         self.session: ClientSession = await self._session_context.__aenter__()
@@ -41,7 +42,7 @@ class McpClientStreamableHttp:
 
         self.messages = []
 
-    async def process_query(self, query: str, toolsToLoad: list[str], strongType: type = None, freshSession: bool = False) -> any:
+    async def process_query(self, query: str, toolsToLoad: list[str], outputType: Optional[Type[BaseModel]] = None, freshSession: bool = False) -> any:
         if freshSession:
             self.messages.clear()
 
@@ -50,13 +51,48 @@ class McpClientStreamableHttp:
             "content": query
         })
 
-        response = await self.session.list_tools()
+        toolResponse: any = await self.session.list_tools()
 
         # Filter tools to keep only those in toolsToLoad
-        filtered_tools = response.tools if not toolsToLoad else [tool for tool in response.tools if tool.name in toolsToLoad]
+        filtered_tools = toolResponse.tools if not toolsToLoad else [tool for tool in toolResponse.tools if tool.name in toolsToLoad]
         available_tools = [self.__convert_tool_format(tool) for tool in filtered_tools]
 
-        return await self.__chat_execute(available_tools, strongType)
+        response = ""
+        output_type_counter: int = 0
+        if query and query.strip():
+            response = await self.__chat_execute(available_tools, None)
+
+        # Convert query response to output type specified
+        # Will retry some time before giving up
+        output_type_error = ""
+        if outputType is not None:
+            while True:
+                try:
+                    if output_type_error == "":
+                        toTypeSchema = outputType.model_json_schema()
+                        toTypeStr: str = f"""For the result produced previously, return the result as a JSON array where each element matches the following schema
+                        {json.dumps(toTypeSchema, indent=2)}"""
+                        print(toTypeStr)
+                        self.messages.append({
+                            "role": "user",
+                            "content": toTypeStr
+                        })
+                    else:
+                        toTypeStr: str = f"""Result return schema incorrect: {output_type_error}. Try again."""
+                        self.messages.append({
+                            "role": "user",
+                            "content": toTypeStr
+                        })
+                    response = await self.__chat_execute(available_tools, outputType)
+                    break
+                except Exception as e:
+                    output_type_counter+=1
+                    response, output_type_error = f"Error: {str(e)}"
+                    if output_type_counter == 3:
+                        print(f"Exited due to output type retry counter reached")
+                        raise
+        
+        return response
 
     async def chat_loop(self, toolsToLoad: list[str]):
         """Run an interactive chat loop"""
@@ -66,6 +102,10 @@ class McpClientStreamableHttp:
         while True:
             try:
                 query = input("\nQuery: ").strip()
+                if query.lower().startswith('testing'):
+                    query = query[len("testing"):]
+                    result = await self.process_query(query, toolsToLoad, ReviewOutput)
+                    continue
                 if query.lower() == 'quit':
                     break
                 if query.lower() == 'clear':
@@ -85,9 +125,10 @@ class McpClientStreamableHttp:
         if self._streams_context:
             await self._streams_context.__aexit__(None, None, None)
 
-    async def __chat_execute(self, available_tools: dict[str, any], strongType: type = None) -> any:
+    async def __chat_execute(self, available_tools: dict[str, any], outputType: Optional[Type[BaseModel]] = None) -> any:
         continue_count: int = 0
         response: any = None
+        fullChat: str = ""
         while True:
             if continue_count == 5:
                 print(f"Exited due to continue limit reached")
@@ -96,10 +137,8 @@ class McpClientStreamableHttp:
             params = {
                 "model": self.model,
                 "tools": available_tools,
-                "messages": self.messages,
+                "messages": self.messages
             }
-            if strongType is not None:
-                params["output_type"] = strongType
             response = self.openai.chat.completions.create(**params)
 
             content = response.choices[0].message
@@ -109,6 +148,7 @@ class McpClientStreamableHttp:
                 await self.__tool_execute(content)
                 continue
             else:
+                fullChat += response.choices[0].message.content
                 print(response.choices[0].message.content)
 
             finish_reason = getattr(response.choices[0], 'finish_reason', None)
@@ -117,15 +157,19 @@ class McpClientStreamableHttp:
                 break
             
             # If the chat is not complete, prompt to continue
-            else:
+            elif finish_reason == "length":
                 self.messages.append({
                     "role": "user",
                     "content": "continue"
                 })
                 print("continue")
                 continue_count+=1
-                
-        return response.choices[0].message.content
+
+            # Something broke, i.e. insufficient funds
+            else:
+                return fullChat
+
+        return self.__get_response(fullChat, outputType)
 
     async def __tool_execute(self, content: ChatCompletionMessage) -> None:
         tool_name = content.tool_calls[0].function.name
@@ -157,8 +201,8 @@ class McpClientStreamableHttp:
         print(f"[Calling tool {tool_name} returned with {result.content}]")
     
     def __convert_tool_format(self, tool: Tool) -> dict[str, any]:
-        properties = tool.inputSchema.get("properties", {})
-        required = tool.inputSchema.get("required", [])
+        properties = tool.input_schema.get("properties", {})
+        required = tool.input_schema.get("required", [])
         
         # Compose the base parameters schema
         parameters_schema = {
@@ -177,3 +221,11 @@ class McpClientStreamableHttp:
         }
         
         return converted_tool
+
+    def __get_response(self, fullChat: str, outputType: Optional[Type[BaseModel]]) -> any:
+        if outputType is not None:
+            dataList = json.loads(fullChat)
+            typed = [outputType.model_validate(data) for data in dataList]
+            return typed
+                
+        return fullChat

@@ -1,6 +1,9 @@
 from abstract_agent_instructions import AbstractAgentInstructions
 from agent_output import ReviewOutput
-from typing import Tuple
+from comments_category import CommentsCategory
+from review_severity import ReviewSeverity
+from pydantic import BaseModel
+from typing import Optional, Tuple, Type
 
 class AgentInstructions(AbstractAgentInstructions):
     def review_starting_instruction() -> str:
@@ -30,10 +33,9 @@ Analyze the aggregated diff from step 2. Do not consider or review any diffs fro
 Focus on code quality, correctness, style, potential bugs, and adherence to guidelines within these diffs.
 """]
                 
-    def review_ending_instruction() -> Tuple[str, type]:
+    def review_ending_instruction() -> Tuple[str, Optional[Type[BaseModel]]]:
         return f"""
-For the result produced in step 3, return the result as the output type provided.
-""", list[ReviewOutput]
+""", ReviewOutput
     
     def comment_starting_instruction() -> str:
         return f"""
@@ -45,7 +47,7 @@ For the result produced in step 3, return the result as the output type provided
 
 """]
         
-    def comment_ending_instruction() -> Tuple[str, type]:
+    def comment_ending_instruction() -> Tuple[str, Optional[Type[BaseModel]]]:
         return f"""
 
 """, None
@@ -60,7 +62,7 @@ For the result produced in step 3, return the result as the output type provided
 
 """]
         
-    def comment_ending_instruction() -> Tuple[str, type]:
+    def comment_ending_instruction() -> Tuple[str, Optional[Type[BaseModel]]]:
         return f"""
 
 """, None
