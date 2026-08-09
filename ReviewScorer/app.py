@@ -56,6 +56,8 @@ async def main() -> None:
     try:
         await client.connect_to_streamable_http_server(github_mcp_url, {"Authorization": "Bearer " + github_api_key})
         await client.chat_loop([])
+    except Exception as e:
+        print(f"Error: {str(e)}")
     finally:
         await client.cleanup()
 
