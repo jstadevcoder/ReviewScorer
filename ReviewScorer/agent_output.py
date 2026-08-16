@@ -21,7 +21,6 @@ class PRComment(BaseModel):
     pr_link: str = Field(..., description="The url link of the PR the comment is in")
 
 class CommentOutput(PRComment):
-    comment: str = Field(..., description="The comment")
     reason: str = Field(..., description="The reason for the comment")
     comment_category: CommentsCategory = Field(..., description=
         f"""The category the instruction belongs to.
