@@ -6,7 +6,7 @@ from mcp.types import Tool
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage
 from pydantic import BaseModel
-from typing import Type, Optional
+from typing import Any, List, Type, Optional
 from agent_output import ReviewOutput
 import json
 
@@ -42,7 +42,7 @@ class McpClientStreamableHttp:
 
         self.messages = []
 
-    async def process_query(self, query: str, toolsToLoad: list[str], outputType: Optional[Type[BaseModel]] = None, freshSession: bool = False) -> any:
+    async def process_query(self, query: str, toolsToLoad: List[str], outputType: Optional[Type[BaseModel]] = None, freshSession: bool = False) -> Any:
         if freshSession:
             self.messages.clear()
 
@@ -51,7 +51,7 @@ class McpClientStreamableHttp:
             "content": query
         })
 
-        toolResponse: any = await self.session.list_tools()
+        toolResponse: Any = await self.session.list_tools()
 
         # Filter tools to keep only those in toolsToLoad
         filtered_tools = toolResponse.tools if not toolsToLoad else [tool for tool in toolResponse.tools if tool.name in toolsToLoad]
@@ -87,14 +87,14 @@ class McpClientStreamableHttp:
                     break
                 except Exception as e:
                     output_type_counter+=1
-                    response, output_type_error = f"Error: {str(e)}"
+                    output_type_error = f"Error: {str(e)}"
                     if output_type_counter == 3:
                         print(f"Exited due to output type retry counter reached")
                         raise
         
         return response
 
-    async def chat_loop(self, toolsToLoad: list[str]):
+    async def chat_loop(self, toolsToLoad: List[str]):
         """Run an interactive chat loop"""
         print("\nMCP Client Started!")
         print("Type your queries or 'quit' to exit.")
@@ -124,10 +124,11 @@ class McpClientStreamableHttp:
             await self._session_context.__aexit__(None, None, None)
         if self._streams_context:
             await self._streams_context.__aexit__(None, None, None)
+        self.openai.close()
 
-    async def __chat_execute(self, available_tools: dict[str, any], outputType: Optional[Type[BaseModel]] = None) -> any:
+    async def __chat_execute(self, available_tools: dict[str, Any], outputType: Optional[Type[BaseModel]] = None) -> Any:
         continue_count: int = 0
-        response: any = None
+        response: Any = None
         fullChat: str = ""
         while True:
             if continue_count == 5:
@@ -200,7 +201,7 @@ class McpClientStreamableHttp:
         })
         print(f"[Calling tool {tool_name} returned with {result.content}]")
     
-    def __convert_tool_format(self, tool: Tool) -> dict[str, any]:
+    def __convert_tool_format(self, tool: Tool) -> dict[str, Any]:
         properties = tool.input_schema.get("properties", {})
         required = tool.input_schema.get("required", [])
         
@@ -222,7 +223,7 @@ class McpClientStreamableHttp:
         
         return converted_tool
 
-    def __get_response(self, fullChat: str, outputType: Optional[Type[BaseModel]]) -> any:
+    def __get_response(self, fullChat: str, outputType: Optional[Type[BaseModel]]) -> Any:
         if outputType is not None:
             dataList = json.loads(fullChat)
             typed = [outputType.model_validate(data) for data in dataList]

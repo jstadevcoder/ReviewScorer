@@ -10,7 +10,9 @@ dependencies = [
     "asyncio>=4.0.0",
     "debugpy>=1.8.21",
     "dotenv>=0.9.9",
+    "faiss-cpu>=1.15.0",
     "mcp>=1.28.1",
+    "numpy>=2.5.2",
     "openai>=2.45.0",
     "python-dotenv>=1.2.2",
 ]
