@@ -1,40 +1,54 @@
-from typing import Optional, List
-from contextlib import AsyncExitStack
-from mcp import ClientSession
-from mcp.client.streamable_http import streamable_http_client
-from openai import OpenAI
+from agent_instructions import ScorerAgentInstructions
+from agent_output import CommentOutput, PRComment
+from mcp_client import McpClientStreamableHttp
+from rag_agent import RAGAgent
+from typing import Any, cast, List
 import json
-from mcp.shared._httpx_utils import (
-    create_mcp_http_client,
-)
+import numpy
 
 class ReviewScorer:
-    gitMcpUrl = "https://api.githubcopilot.com/mcp"
-    def __init__(self, agentUrl: str, agentKey: str, agentModel: str, gitKey: str, prUrl: List[str]):
-        self.agentUrl = agentUrl
-        self.agentKey = agentKey
-        self.agentModel = agentModel
-        self.gitKey = gitKey
-        self.prUrl = prUrl
+    def __init__(self, agentUrl: str, agentKey: str, agentModel: str, embeddingModel: str, embeddingDimension: int, ragPath:str = None):
+        self.embeddingModel = embeddingModel
+        self.embeddingDimension = embeddingDimension
+        self.ragPath = ragPath
 
-    async def get_score(
-        self, server_url: str, headers: Optional[dict] = None
-    ) -> str:
-        "Connect to an MCP server running with HTTP Streamable transport"
-        httpClient = create_mcp_http_client(headers=headers)
-        self._streams_context = streamable_http_client(
-            url=server_url,
-            http_client=httpClient or {},
-        )
-        read_stream, write_stream, _ = await self._streams_context.__aenter__()
+        self.mcpClient = McpClientStreamableHttp(agentUrl, agentKey, agentModel)
 
-        self._session_context = ClientSession(read_stream, write_stream)
-        self.session: ClientSession = await self._session_context.__aenter__()
+        self.ragAgent = RAGAgent(agentUrl, agentKey, embeddingModel, embeddingDimension)
+        try:
+            self.ragAgent.load_index_data(ragPath, CommentOutput)
+        except Exception as e:
+            print(f"Error when loading initial RAG history: {str(e)}")
 
-        await self.session.initialize()
+    def cleanup(self):
+        self.ragAgent.save_index_data(self.ragPath)
+        self.ragAgent.cleanup()
+        self.mcpClient.cleanup()
 
-        # List available tools from the MCP server
-        response = await self.session.list_tools()
-        print("\nConnected to server with tools:", [tool.name for tool in response.tools])
+    async def connect_to_mcp_client(self, gitUrl: str, gitKey: str, ):
+        await self.mcpClient.connect_to_streamable_http_server(gitUrl, {"Authorization": "Bearer " + gitKey})
 
-        self.messages = []
+    async def scorePrComment(self, prLink: str) -> Any:
+        startingQuery = await self.__getRagQuery(prLink)
+        print(f"Starting RAG: {startingQuery}")
+        instructionTuple = ScorerAgentInstructions.ending_instruction({"url": prLink})
+        query = startingQuery + instructionTuple[0]
+        chatResult = await self.mcpClient.process_query(query, [], instructionTuple[1])
+        print(f"Score Result: {chatResult}")
+        endingResult = cast(List[CommentOutput], chatResult)
+
+        endingEmbeddings:numpy.ndarray = await self.ragAgent.get_embeddings([item.comment for item in endingResult])
+        self.ragAgent.add_to_index(endingEmbeddings, endingResult)
+        return None
+
+    async def __getRagQuery(self, prLink: str) -> str:
+        if self.ragAgent.faiss_index.ntotal == 0:
+            return ""
+        
+        startingQuery, startingType = ScorerAgentInstructions.starting_instruction({"url": prLink})
+        startingResult = cast(List[PRComment], await self.mcpClient.process_query(startingQuery, [], startingType))
+        startingEmbeddings:numpy.ndarray = await self.ragAgent.get_embeddings([item.comment for item in startingResult])
+        similarScorings = cast(List[CommentOutput], self.ragAgent.retrieve_similar(startingEmbeddings))
+        context_text = json.dumps(similarScorings)
+
+        return f"Given these past PR comments with their metadata and scores:\n{context_text}\n"

@@ -1,39 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import Tuple
+from pydantic import BaseModel
+from typing import List, Optional, Tuple, Type
 
 class AbstractAgentInstructions(ABC):
     @abstractmethod
-    def review_starting_instruction() -> str:
+    def starting_instruction(argParams: dict[str, str]) -> Tuple[str, Optional[Type[BaseModel]]]:
         pass
 
     @abstractmethod
-    def review_instructions_list(argParams: dict[str, str]) -> list[str]:
+    def instructions_list(argParams: dict[str, str]) -> List[str]:
         pass
 
     @abstractmethod
-    def review_ending_instruction(argParams: dict[str, str]) -> Tuple[str, type]:
-        pass
-
-    @abstractmethod
-    def comment_starting_instruction() -> str:
-        pass
-
-    @abstractmethod
-    def comment_instructions_list(argParams: dict[str, str]) -> list[str]:
-        pass
-
-    @abstractmethod
-    def comment_ending_instruction(argParams: dict[str, str]) -> Tuple[str, type]:
-        pass
-
-    @abstractmethod
-    def scorer_starting_instruction() -> str:
-        pass
-
-    @abstractmethod
-    def scorer_instructions_list(argParams: dict[str, str]) -> list[str]:
-        pass
-
-    @abstractmethod
-    def scorer_ending_instruction(argParams: dict[str, str]) -> Tuple[str, type]:
+    def ending_instruction(argParams: dict[str, str]) -> Tuple[str, Optional[Type[BaseModel]]]:
         pass
