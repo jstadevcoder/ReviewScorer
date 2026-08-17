@@ -26,6 +26,36 @@ The project can now be run with
 uv run ./ReviewScorer/app.py
 ```
 
+### Tests
+
+To run the tests, use one of the following
+
+```bash
+# all tests
+uv run pytest
+# single file
+uv run pytest tests/llmclients/test_chat_client.py
+# single test
+uv run pytest uv run pytest tests/llmclients/test_chat_client.py::test_that_doesnt_exist
+# single test within a class
+uv run pytest uv run pytest tests/llmclients/test_chat_client.py::TestChatClient::test_process_simple_query
+```
+
+### Formatting
+
+Ruff has been added to the project to help with formatting. Run it with:
+
+```bash
+# check for formatting issues
+uv run ruff check
+# check for formatting issues in specific files
+uv run ruff check ./ReviewScorer/llmclients/
+# auto-fix formatting issues
+uv run ruff check --fix 
+# auto-fix formatting issues in specific files
+uv run ruff check --fix  ./tests/llmclients/
+```
+
 ## API keys
 
 ### OpenRouter
