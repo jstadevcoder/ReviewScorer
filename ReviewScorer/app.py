@@ -1,7 +1,7 @@
 import asyncio
 import os
 from dotenv import load_dotenv
-from mcp_client import McpClientStreamableHttp
+from clients.mcp_client import McpClientStreamableHttp
 from review_scorer import ReviewScorer
 from rag_agent import RAGAgent
 import numpy
@@ -83,7 +83,7 @@ async def main() -> None:
     testingRag = ["The error handling here does not catch all exception types"]
     endingEmbeddings = await rag.get_embeddings(testingRag)
     testSimilar = rag.retrieve_similar(endingEmbeddings)
-    rag.cleanup()
+    await rag.cleanup()
 
     scorer = ReviewScorer(agent_api_url, agent_api_key, agent_model, embedding_model, embedding_dimension)
     try:
@@ -92,9 +92,9 @@ async def main() -> None:
     except Exception as e:
         print(f"Error: {str(e)}")
     finally:
-        scorer.cleanup()
+        await scorer.cleanup()
 
-    client = McpClientStreamableHttp(agent_api_url, agent_api_key, agent_model)
+    client = McpClientStreamableHttp()
     try:
         await client.connect_to_streamable_http_server(github_mcp_url, {"Authorization": "Bearer " + github_api_key})
         await client.chat_loop([])

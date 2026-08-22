@@ -29,8 +29,8 @@ class RAGAgent:
         # Use inner product for cosine similarity if vectors normalized
         self.__reset_index_data()
 
-    def cleanup(self):
-        self.openai.close()
+    async def cleanup(self):
+        await self.openai.close()
     
     async def get_embeddings(self, texts: List[str]) -> numpy.ndarray:
         """
