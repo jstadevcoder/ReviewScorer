@@ -1,1 +1,1 @@
-# Package containing modules for various LLM clients.
+# Package containing modules for various clients.

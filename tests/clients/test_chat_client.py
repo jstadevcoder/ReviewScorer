@@ -20,7 +20,7 @@ def _tool_response(name: str, args: list, finish_reason: str = "stop"):
     """Generate a response that vaguely looks like an OpenAI SDK response, for the fields we care about."""
     message = "generic-message-for-calling-tool"
     tool_function = SimpleNamespace(name = name, arguments = json.dumps(args))
-    tool_calls = [ SimpleNamespace(function = tool_function) ]
+    tool_calls = [ SimpleNamespace(function = tool_function, id = 0) ]
     model_dump_func = lambda : SimpleNamespace(content = message)
     chat_completion_msg = SimpleNamespace(model_dump = model_dump_func, content = message, tool_calls = tool_calls)
     return SimpleNamespace(choices = [ SimpleNamespace(message = chat_completion_msg, finish_reason = finish_reason) ])
@@ -112,7 +112,8 @@ class TestChatClient:
         await chat_client.process_query("ffs", [])
         fake_tool_call.assert_awaited_once_with(
             "my_tool",
-            {"arg-1": "val-1", "arg-2": "val-2"},
+            {"arg-1": "val-1", "arg-2": "val-2",},
+            0
         )
 
 

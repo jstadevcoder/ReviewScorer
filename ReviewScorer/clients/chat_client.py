@@ -74,8 +74,9 @@ class ChatClient:
         return self.__messages
 
 
-    def cleanup(self):
-        self.__openai.close()
+    async def cleanup(self):
+        if self.__openai:
+            self.__openai.close()
 
 
     def _build_openai_client(self, url, api_key):
@@ -103,8 +104,10 @@ class ChatClient:
             if content.tool_calls is not None:
                 tool_name = content.tool_calls[0].function.name
                 tool_args = content.tool_calls[0].function.arguments
+                tool_call_id = content.tool_calls[0].id
                 tool_args = json.loads(tool_args) if tool_args else {}
-                await self.__tool_callback(tool_name, tool_args)
+                tool_response = await self.__tool_callback(tool_name, tool_args, tool_call_id)
+                self.__messages.append(tool_response)
                 continue
             else:
                 fullChat += response.choices[0].message.content

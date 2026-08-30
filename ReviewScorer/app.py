@@ -1,10 +1,12 @@
 import asyncio
 import os
 from dotenv import load_dotenv
-from mcp_client import McpClientStreamableHttp
+from clients.mcp_client import McpClientStreamableHttp
 from review_scorer import ReviewScorer
 from rag_agent import RAGAgent
 import numpy
+from typing import Any
+import traceback
 #from openai import OpenAI
 #from agents import Agent, Runner, trace
 #from agents.mcp import MCPServerStreamableHttp
@@ -21,6 +23,10 @@ async def getGitMcpPr(question, params, model):
         result = await Runner.run(agent, question)
         return result
 """
+
+
+def __rag_key_callback(data: Any) -> str:
+    return data
 
 async def main() -> None:
     load_dotenv(override=True)
@@ -65,7 +71,7 @@ async def main() -> None:
     print(response.choices[0].message.content)
     """
 
-    rag = RAGAgent(agent_api_url, agent_api_key, embedding_model, embedding_dimension)
+    """rag = RAGAgent(agent_api_url, agent_api_key, embedding_model, embedding_dimension, __rag_key_callback)
     testingRag = ["This is a test",
                   "The quick brown fox jumped over the lazy dog",
                   "Does this belong here",
@@ -83,25 +89,27 @@ async def main() -> None:
     testingRag = ["The error handling here does not catch all exception types"]
     endingEmbeddings = await rag.get_embeddings(testingRag)
     testSimilar = rag.retrieve_similar(endingEmbeddings)
-    rag.cleanup()
+    await rag.cleanup()"""
 
     scorer = ReviewScorer(agent_api_url, agent_api_key, agent_model, embedding_model, embedding_dimension)
     try:
         await scorer.connect_to_mcp_client(github_mcp_url, github_api_key)
-        await scorer.scorePrComment("https://github.com/jstadevcoder/ReviewScorer/pull/1")
+        await scorer.score_pr_comment("https://github.com/jstadevcoder/ReviewScorer/pull/1")
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error: {e}")
+        traceback.print_exc()
     finally:
-        scorer.cleanup()
+        await scorer.cleanup()
 
-    client = McpClientStreamableHttp(agent_api_url, agent_api_key, agent_model)
+    """client = McpClientStreamableHttp()
     try:
         await client.connect_to_streamable_http_server(github_mcp_url, {"Authorization": "Bearer " + github_api_key})
         await client.chat_loop([])
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error: {e}")
+        traceback.print_exc()
     finally:
-        await client.cleanup()
+        await client.cleanup()"""
 
 
 if __name__ == "__main__":
