@@ -5,6 +5,7 @@ from clients.mcp_client import McpClientStreamableHttp
 from review_scorer import ReviewScorer
 from rag_agent import RAGAgent
 import numpy
+from typing import Any
 import traceback
 #from openai import OpenAI
 #from agents import Agent, Runner, trace
@@ -22,6 +23,10 @@ async def getGitMcpPr(question, params, model):
         result = await Runner.run(agent, question)
         return result
 """
+
+
+def __rag_key_callback(data: Any) -> str:
+    return data
 
 async def main() -> None:
     load_dotenv(override=True)
@@ -66,7 +71,7 @@ async def main() -> None:
     print(response.choices[0].message.content)
     """
 
-    """rag = RAGAgent(agent_api_url, agent_api_key, embedding_model, embedding_dimension)
+    """rag = RAGAgent(agent_api_url, agent_api_key, embedding_model, embedding_dimension, __rag_key_callback)
     testingRag = ["This is a test",
                   "The quick brown fox jumped over the lazy dog",
                   "Does this belong here",
@@ -96,7 +101,7 @@ async def main() -> None:
     finally:
         await scorer.cleanup()
 
-    client = McpClientStreamableHttp()
+    """client = McpClientStreamableHttp()
     try:
         await client.connect_to_streamable_http_server(github_mcp_url, {"Authorization": "Bearer " + github_api_key})
         await client.chat_loop([])
@@ -104,7 +109,7 @@ async def main() -> None:
         print(f"Error: {e}")
         traceback.print_exc()
     finally:
-        await client.cleanup()
+        await client.cleanup()"""
 
 
 if __name__ == "__main__":

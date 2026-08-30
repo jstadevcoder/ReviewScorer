@@ -76,7 +76,7 @@ class ChatClient:
 
     async def cleanup(self):
         if self.__openai:
-            await self.__openai.close()
+            self.__openai.close()
 
 
     def _build_openai_client(self, url, api_key):

@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from contextlib import AsyncExitStack
 from openai import AsyncOpenAI
 from pydantic import BaseModel
@@ -14,7 +15,8 @@ class RAGAgent:
         agent_url: str,
         agent_key: str,
         embedding_model: str,
-        embedding_dimension: int
+        embedding_dimension: int,
+        get_key_callback: Callable[[Any], str] | None = None
     ):
         self.exit_stack = AsyncExitStack()
         self.openai = AsyncOpenAI(
@@ -24,6 +26,7 @@ class RAGAgent:
         self.embedding_model = embedding_model
         self.embedding_dimension = embedding_dimension
         self.encoding_format = self.__model_encoding_map.get(embedding_model, "base64")
+        self.__get_key_callback = get_key_callback
         
         # Initialize FAISS index (Flat L2 for exact search)
         # Use inner product for cosine similarity if vectors normalized
@@ -65,7 +68,7 @@ class RAGAgent:
         
         results = []
         for idx in indices[0]:
-            if idx < len(self.index_data):
+            if 0 <= idx < len(self.index_data):
                 results.append(self.index_data[idx])
         
         return results
@@ -85,9 +88,13 @@ class RAGAgent:
         new_embeddings = []
         new_data = []
 
+        key_callback = self.__get_key_callback
         for embedding, item in zip(embeddings, data):
-            key = self.__get_data_key(item)
-
+            if key_callback is not None:
+                key = key_callback(item)
+            else:
+                key = self.__get_data_key(item)
+            
             if key in self.data_keys:
                 continue
 
@@ -175,8 +182,11 @@ class RAGAgent:
             self.__reset_index_data()
             raise ValueError(f"Number of vectors in FAISS index ({num_vectors}) does not match number of data entries ({num_data_entries}).")
 
+        key_callback = self.__get_key_callback
         self.data_keys = {
-            self.__get_data_key(item) for item in self.index_data
+            key_callback(item) if key_callback is not None
+            else self.__get_data_key(item)
+            for item in self.index_data
         }
 
     def __reset_index_data(self) -> None:

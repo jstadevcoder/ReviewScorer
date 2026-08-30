@@ -1,5 +1,5 @@
 from agent_instructions import ReviewAgentInstructions, ScorerAgentInstructions
-from agent_output import CommentOutput, PRComment
+from agent_output import CommentOutput, PRComment, ReviewOutput
 from clients.mcp_client import McpClientStreamableHttp
 from clients.chat_client import ChatClient
 from rag_agent import RAGAgent
@@ -19,7 +19,7 @@ class ReviewScorer:
 
         self.__tools = []
 
-        self.ragAgent = RAGAgent(agentUrl, agentKey, embeddingModel, embeddingDimension)
+        self.ragAgent = RAGAgent(agentUrl, agentKey, embeddingModel, embeddingDimension, self.__rag_key_callback)
         try:
             self.ragAgent.load_index_data(ragPath, CommentOutput)
         except Exception as e:
@@ -41,9 +41,11 @@ class ReviewScorer:
         print("\nConnected to server with tools:", [tool["function"]["name"] for tool in self.__tools])
 
     async def score_pr_comment(self, prLink: str) -> Any:
-        await self.__review_initial_pr(prLink)
-        startingQuery = await self.__get_rag_query(prLink)
+        review_output = await self.__review_initial_pr(prLink)
+        self.chatClient.clear_history()
+        startingQuery = await self.__get_rag_query(prLink, review_output)
         print(f"Starting RAG: {startingQuery}")
+
         instructionTuple = ScorerAgentInstructions.ending_instruction({"url": prLink})
         query = startingQuery + instructionTuple[0]
         chatResult = await self.chatClient.process_query(query, self.__tools, instructionTuple[1])
@@ -55,32 +57,37 @@ class ReviewScorer:
         return None
 
 
-    async def __review_initial_pr(self, prLink: str):
+    async def __review_initial_pr(self, prLink: str) -> list[ReviewOutput]:
         for instruction in ReviewAgentInstructions.instructions_list({"url": prLink}):
             chatResult = await self.chatClient.process_query(instruction, self.__tools) 
             print(f"Instruction Result: {chatResult}")
 
         instructionTuple = ReviewAgentInstructions.ending_instruction({"url": prLink})
         chatResult = await self.chatClient.process_query(instructionTuple[0], self.__tools, instructionTuple[1])
+        chatResult_to_type = cast(list[ReviewOutput], chatResult)
         print(f"Review Result: {chatResult}")
+        return chatResult_to_type
 
-    async def __get_rag_query(self, prLink: str) -> str:
+    async def __get_rag_query(self, prLink: str, reviewOuput: list[ReviewOutput]) -> str:
+        startingQuery, startingType = ScorerAgentInstructions.starting_instruction({"url": prLink,  "comments": "\n".join([output.instruction for output in reviewOuput])})
+        startingResult = cast(list[PRComment], await self.chatClient.process_query(startingQuery, self.__tools, startingType))
         if self.ragAgent.faiss_index.ntotal == 0:
             return ""
         
-        startingQuery, startingType = ScorerAgentInstructions.starting_instruction({"url": prLink})
-        startingResult = cast(list[PRComment], await self.chatClient.process_query(startingQuery, self.__tools, startingType))
         startingEmbeddings:numpy.ndarray = await self.ragAgent.get_embeddings([item.comment for item in startingResult])
         similarScorings = cast(list[CommentOutput], self.ragAgent.retrieve_similar(startingEmbeddings))
         context_text = json.dumps(similarScorings)
 
         return f"Given these past PR comments with their metadata and scores:\n{context_text}\n"
 
-
-    async def __tool_callback(self, name: str, args: dict, tool_call_id):
+    async def __tool_callback(self, name: str, args: dict, tool_call_id) -> Any:
         """
         Callback from the chat client to execute a tool.
         TODO If we move to supporting multiple MCP servers, we'll need a mapping of tools
             to pick the right MCP client.
         """
         return await self.mcpClient.execute_tool(name, args, tool_call_id)
+    
+    def __rag_key_callback(self, data: Any) -> str:
+        data_origin = cast(CommentOutput, data)
+        return data_origin.comment
