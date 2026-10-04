@@ -6,6 +6,9 @@ from mcp.client.streamable_http import streamable_http_client
 from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.types import Tool
 
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 class McpClientStreamableHttp:
     """
@@ -35,11 +38,11 @@ class McpClientStreamableHttp:
 
     async def execute_tool(self, tool_name: str, tool_args: dict, tool_call_id) -> Any:
         try:
-            print(f"[Calling tool {tool_name} with args {tool_args}]")
+            logger.info(f"[Calling tool {tool_name} with args {tool_args}]")
             # Execute tool call
             result = await self.session.call_tool(tool_name, tool_args)
         except Exception as e:
-            print(f"Error calling tool {tool_name}: {e}")
+            logger.exception(f"Error calling tool {tool_name}", error=str(e))
             result = None
             return {
                 "role": "tool",
@@ -48,7 +51,7 @@ class McpClientStreamableHttp:
                 "content": {e}
             }
 
-        print(f"[Calling tool {tool_name} returned with {result.content}]")
+        logger.info(f"[Calling tool {tool_name} returned with {result.content}]")
         return {
             "role": "tool",
             "tool_call_id": tool_call_id,
