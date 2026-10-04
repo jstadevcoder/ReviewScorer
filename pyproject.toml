@@ -17,7 +17,9 @@ dependencies = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.3",
     "ruff>=0.16.3",
+    "structlog>=26.1.0",
 ]
 
 [build-system]
@@ -29,6 +31,9 @@ optional-dependencies = {dev = {file = ["dev-requirements.txt"]}} # add packages
 
 [project.scripts]
 # TODO: add your CLI entry points here
+
+[tool.pytest.ini_options]
+tmp_path_retention_policy = "none"
 
 
 

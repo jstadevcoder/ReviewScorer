@@ -112,3 +112,6 @@ ENV/
 env/
 env.bak/
 venv.bak/
+
+# rag data
+RAG_Data/

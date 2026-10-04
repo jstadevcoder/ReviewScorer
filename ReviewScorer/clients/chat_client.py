@@ -1,10 +1,12 @@
 import json
+import structlog
+
 from collections.abc import Callable
 from typing import Any
-
 from openai import OpenAI
 from pydantic import BaseModel
 
+logger = structlog.get_logger(__name__)
 
 class ChatClient:
     """
@@ -44,7 +46,7 @@ class ChatClient:
                         toTypeSchema = outputType.model_json_schema()
                         toTypeStr: str = f"""For the result produced previously, return the result as a JSON array where each element matches the following schema
                         {json.dumps(toTypeSchema, indent=2)}"""
-                        print(toTypeStr)
+                        logger.info(toTypeStr)
                         self.__messages.append({
                             "role": "user",
                             "content": toTypeStr
@@ -61,7 +63,7 @@ class ChatClient:
                     output_type_counter+=1
                     output_type_error = f"Error: {e!s}"
                     if output_type_counter == 3:
-                        print("Exited due to output type retry counter reached")
+                        logger.warning("Exited due to output type retry counter reached")
                         raise
         
         return response
@@ -88,7 +90,7 @@ class ChatClient:
         fullChat: str = ""
         while True:
             if continue_count == 5:
-                print("Exited due to continue limit reached")
+                logger.warning("Exited due to continue limit reached")
                 break
 
             params = {
@@ -111,7 +113,7 @@ class ChatClient:
                 continue
             else:
                 fullChat += response.choices[0].message.content
-                print(response.choices[0].message.content)
+                logger.info(response.choices[0].message.content)
 
             finish_reason = getattr(response.choices[0], 'finish_reason', None)
             # If the chat is complete, exit the loop
@@ -124,7 +126,7 @@ class ChatClient:
                     "role": "user",
                     "content": "continue"
                 })
-                print("continue")
+                logger.info("continue")
                 continue_count+=1
 
             # Something broke, i.e. insufficient funds
@@ -140,5 +142,3 @@ class ChatClient:
             return typed
                 
         return fullChat
-
-

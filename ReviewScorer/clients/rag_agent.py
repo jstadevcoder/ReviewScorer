@@ -3,6 +3,7 @@ from contextlib import AsyncExitStack
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 from typing import Any
+
 import faiss
 import json
 import numpy
@@ -165,8 +166,9 @@ class RAGAgent:
         self.faiss_index = faiss.read_index(faiss_idx_path)
 
         if self.faiss_index.d != self.embedding_dimension:
+            loaded_dimension = self.faiss_index.d
             self.__reset_index_data()
-            raise ValueError(f"Loaded index dimension {self.faiss_index.d} does not match configured dimension {self.embedding_dimension}.")
+            raise ValueError(f"Loaded index dimension {loaded_dimension} does not match configured dimension {self.embedding_dimension}.")
         
         with open(data_path, "r", encoding="utf-8") as f:
             data_list = json.load(f)

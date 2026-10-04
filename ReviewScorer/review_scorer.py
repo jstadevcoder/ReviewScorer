@@ -1,15 +1,22 @@
-from agent_instructions import ReviewAgentInstructions, ScorerAgentInstructions
-from agent_output import CommentOutput, PRComment, ReviewOutput
-from clients.mcp_client import McpClientStreamableHttp
-from clients.chat_client import ChatClient
-from rag_agent import RAGAgent
 from typing import Any, cast
+
 import json
 import numpy
-import traceback
+import structlog
+
+from ReviewScorer.agent_instructions.review_agent_instructions import ReviewAgentInstructions
+from ReviewScorer.agent_instructions.scorer_agent_instructions import ScorerAgentInstructions
+from ReviewScorer.agent_outputs.comment_output import CommentOutput
+from ReviewScorer.agent_outputs.pr_comment import PRComment
+from ReviewScorer.agent_outputs.review_output import ReviewOutput
+from ReviewScorer.clients.mcp_client import McpClientStreamableHttp
+from ReviewScorer.clients.chat_client import ChatClient
+from ReviewScorer.clients.rag_agent import RAGAgent
+
+logger = structlog.get_logger(__name__)
 
 class ReviewScorer:
-    def __init__(self, agentUrl: str, agentKey: str, agentModel: str, embeddingModel: str, embeddingDimension: int, ragPath:str = None):
+    def __init__(self, agentUrl: str, agentKey: str, agentModel: str, embeddingModel: str, embeddingDimension: int, ragPath:str | None = None):
         self.embeddingModel = embeddingModel
         self.embeddingDimension = embeddingDimension
         self.ragPath = ragPath
@@ -22,9 +29,8 @@ class ReviewScorer:
         self.ragAgent = RAGAgent(agentUrl, agentKey, embeddingModel, embeddingDimension, self.__rag_key_callback)
         try:
             self.ragAgent.load_index_data(ragPath, CommentOutput)
-        except Exception as e:
-            print(f"Error when loading initial RAG history: {str(e)}")
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Error when loading initial RAG history")
 
     async def cleanup(self):
         self.ragAgent.save_index_data(self.ragPath)
@@ -38,18 +44,21 @@ class ReviewScorer:
         tools = await self.mcpClient.list_tools()
         self.__tools.clear()
         self.__tools.extend(tools)
-        print("\nConnected to server with tools:", [tool["function"]["name"] for tool in self.__tools])
+        logger.info(
+            "Connected to server with tools",
+            tools=[tool["function"]["name"] for tool in self.__tools],
+        )
 
     async def score_pr_comment(self, prLink: str) -> Any:
         review_output = await self.__review_initial_pr(prLink)
         self.chatClient.clear_history()
         startingQuery = await self.__get_rag_query(prLink, review_output)
-        print(f"Starting RAG: {startingQuery}")
+        logger.info(f"Starting RAG: {startingQuery}")
 
         instructionTuple = ScorerAgentInstructions.ending_instruction({"url": prLink})
         query = startingQuery + instructionTuple[0]
         chatResult = await self.chatClient.process_query(query, self.__tools, instructionTuple[1])
-        print(f"Score Result: {chatResult}")
+        logger.info(f"Score Result: {chatResult}")
         endingResult = cast(list[CommentOutput], chatResult)
 
         endingEmbeddings:numpy.ndarray = await self.ragAgent.get_embeddings([item.comment for item in endingResult])
@@ -60,12 +69,12 @@ class ReviewScorer:
     async def __review_initial_pr(self, prLink: str) -> list[ReviewOutput]:
         for instruction in ReviewAgentInstructions.instructions_list({"url": prLink}):
             chatResult = await self.chatClient.process_query(instruction, self.__tools) 
-            print(f"Instruction Result: {chatResult}")
+            logger.info(f"Instruction Result: {chatResult}")
 
         instructionTuple = ReviewAgentInstructions.ending_instruction({"url": prLink})
         chatResult = await self.chatClient.process_query(instructionTuple[0], self.__tools, instructionTuple[1])
         chatResult_to_type = cast(list[ReviewOutput], chatResult)
-        print(f"Review Result: {chatResult}")
+        logger.info(f"Review Result: {chatResult}")
         return chatResult_to_type
 
     async def __get_rag_query(self, prLink: str, reviewOuput: list[ReviewOutput]) -> str:
