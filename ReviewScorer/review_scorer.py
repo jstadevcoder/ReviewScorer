@@ -65,7 +65,6 @@ class ReviewScorer:
         self.ragAgent.add_to_index(endingEmbeddings, endingResult)
         return None
 
-
     async def __review_initial_pr(self, prLink: str) -> list[ReviewOutput]:
         for instruction in ReviewAgentInstructions.instructions_list({"url": prLink}):
             chatResult = await self.chatClient.process_query(instruction, self.__tools) 

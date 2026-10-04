@@ -5,6 +5,7 @@ class CommentsCategory(Enum):
     SECURITY = ("SECURITY", "The comment is related SECURITY issues")
     PERFORMANCE = ("PERFORMANCE", "The comment is related PERFORMANCE")
     ERROR = ("ERROR", "The comment is related to ERROR handling")
+    INFORMATIVE = ("INFORMATIVE", "The comment is providing extra knowledge")
     NOP = ("NOP", "The comment is just a comment that does nothing")
     OTHER = ("OTHER", "The comment is related to something else")
 
