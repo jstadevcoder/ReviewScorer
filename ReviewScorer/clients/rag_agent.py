@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from contextlib import AsyncExitStack
 from openai import AsyncOpenAI
+from pathlib import Path
 from pydantic import BaseModel
 from typing import Any
 
@@ -8,6 +9,7 @@ import faiss
 import json
 import numpy
 import os
+import sys
 
 class RAGAgent:
     __model_encoding_map = {"nvidia/nemotron-3-embed-1b:free": "float"}
@@ -126,7 +128,7 @@ class RAGAgent:
 
         if not filepath:
             # Default to '[projectDirectory]]/RAG_Data/index'
-            project_dir = os.path.dirname(os.path.abspath(__file__))
+            project_dir = Path(sys.argv[0]).resolve().parent
             filepath = os.path.join(project_dir, "RAG_Data", "index")
 
         # Create directory if it doesn't exist
@@ -152,7 +154,7 @@ class RAGAgent:
         """
         if not filepath:
             # Default to '[projectDirectory]]/RAG_Data/index'
-            project_dir = os.path.dirname(os.path.abspath(__file__))
+            project_dir = Path(sys.argv[0]).resolve().parent
             filepath = os.path.join(project_dir, "RAG_Data", "index")
         
         faiss_idx_path = f"{filepath}_faiss.idx"

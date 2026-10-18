@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from logging_helper.logging_config import LoggingConfig
 from review_scorer import ReviewScorer
 
+import argparse
 import asyncio
 import os
 import structlog
@@ -13,7 +14,7 @@ logging_config.configure()  # Configures structlog globally
 
 logger = structlog.get_logger(__name__)
 
-async def main() -> None:
+async def main(review_url: str) -> None:
     load_dotenv(override=True)
     agent_api_url = os.getenv('AGENT_API_URL')
     agent_api_key = os.getenv('AGENT_API_KEY')
@@ -40,11 +41,25 @@ async def main() -> None:
     scorer = ReviewScorer(agent_api_url, agent_api_key, agent_model, embedding_model, embedding_dimension)
     try:
         await scorer.connect_to_mcp_client(github_mcp_url, github_api_key)
-        await scorer.score_pr_comment("https://github.com/jstadevcoder/ReviewScorer/pull/1")
+        await scorer.score_pr_comment(review_url)
     except Exception as e:
         logger.exception("ReviewScorer error")
     finally:
         await scorer.cleanup()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(
+        description="Get a review Url to perform a review on."
+    )
+    parser.add_argument(
+        "--reviewUrl",
+        help="The review Url to perform a review on."
+    )
+
+    args = parser.parse_args()
+
+    if not args.reviewUrl or not args.reviewUrl.strip():
+        parser.print_help()
+        raise SystemExit(0)
+
+    asyncio.run(main(args.reviewUrl.strip()))
