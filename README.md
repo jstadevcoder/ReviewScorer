@@ -28,25 +28,27 @@ been done.
 
 Then the review scoring process is run in 2 sequences
 
--Getting the relevant comments
-    -Get the code changes that were made at the time the PR was created using AI tools and Github MCP
-    -Let the LLM perform a PR review on the code changes gotten
-    -Get all the comments made on the PR and exclude the ones that were made by the LLM in the last step
-    -From the leftover comments, select the comments that resulted in code change, learnings and tips
+- Getting the relevant comments
+    - Get the code changes that were made at the time the PR was created using AI tools and Github MCP
+    - Let the LLM perform a PR review on the code changes gotten
+    - Get all the comments made on the PR and exclude the ones that were made by the LLM in the last step
+    - From the leftover comments, select the comments that resulted in code change, learnings and tips
 
--Scoring the comments
-    -For each comment that needs scoring, fetch 10 closest matching historic reviews from RAG
-    -The LLM performs a review on the comment while considering the historical reviews
-    -The LLM outputs the score of a comment in a structured output
-    -The score is then added to the RAG and saved to a file
+- Scoring the comments
+    - For each comment that needs scoring, fetch 10 closest matching historic reviews from RAG
+    - The LLM performs a review on the comment while considering the historical reviews
+    - The LLM outputs the score of a comment in a structured output
+    - The score is then added to the RAG and saved to a file
 
 ## Usage
 
+```
 uv run ./ReviewScorer/app.py [-h] [--reviewUrl REVIEWURL]
 
 options:
   -h, --help            Show this help message and exit
   --reviewUrl REVIEWURL The review Url to perform a review on.
+```
 
 ## Contributing
 

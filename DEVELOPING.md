@@ -82,6 +82,7 @@ Configure this in your `.env` file with the `GITHUB_API_KEY` variable.
 The token needs permissions to read PRs.
 
 ## General Project Structure
+```
 REVIEWSCORER/
 ├── ReviewScorer/
 │   ├── agent_instructions/ #Contains instructions used to feed the LLM to score a PR
@@ -106,3 +107,4 @@ REVIEWSCORER/
 ├── pyproject.toml
 ├── README.md
 └── ...
+```
