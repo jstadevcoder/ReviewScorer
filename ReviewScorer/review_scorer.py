@@ -1,3 +1,4 @@
+from pydantic import TypeAdapter
 from typing import Any, cast
 
 import json
@@ -84,7 +85,7 @@ class ReviewScorer:
         
         startingEmbeddings:numpy.ndarray = await self.ragAgent.get_embeddings([item.comment for item in startingResult])
         similarScorings = cast(list[CommentOutput], self.ragAgent.retrieve_similar(startingEmbeddings))
-        context_text = json.dumps(similarScorings)
+        context_text = TypeAdapter(list[CommentOutput]).dump_json(similarScorings).decode()
 
         return f"Given these past PR comments with their metadata and scores:\n{context_text}\n"
 

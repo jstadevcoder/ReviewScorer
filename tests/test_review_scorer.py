@@ -371,11 +371,8 @@ class TestReviewScorer:
                 ],
             )
 
-        assert result == (
-            "Given these past PR comments with their metadata and scores:\n"
-            '[{"comment": "old comment", "score": 0.92}]\n'
-        )
-
+        assert result == 'Given these past PR comments with their metadata and scores:\n[{"comment":"old comment","score":0.92}]\n'
+        
         mocked_dependencies["chat"].process_query.assert_awaited_once_with(
             "find relevant comments",
             [],
