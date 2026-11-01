@@ -18,12 +18,19 @@ GITHUB_API_KEY=fake-github-api-key
 AGENT_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
 AGENT_API_URL=https://openrouter.ai/api/v1
 GITHUB_MCP_URL=https://api.githubcopilot.com/mcp
+EMBEDDING_MODEL=nvidia/nemotron-3-embed-1b:free
+EMBEDDING_DIMENSION=2048
+#LOGGING_CONFIG can be left out if just logging to console
 ```
 
 The project can now be run with
 
 ```bash
-uv run ./ReviewScorer/app.py
+uv run ./ReviewScorer/app.py [-h] [--reviewUrl REVIEWURL]
+
+options:
+  -h, --help            Show this help message and exit
+  --reviewUrl REVIEWURL The review Url to perform a review on.
 ```
 
 ### Tests
@@ -74,3 +81,28 @@ Configure this in your `.env` file with the `GITHUB_API_KEY` variable.
 
 The token needs permissions to read PRs.
 
+## General Project Structure
+REVIEWSCORER/
+├── ReviewScorer/
+│   ├── agent_instructions/ #Contains instructions used to feed the LLM to score a PR
+│   │   └── ...
+│   ├── agent_outputs/ #Contains structured output schemas for LLMs to produce
+│   │   └── ...
+│   ├── clients/ #The chat implementation to connect to a LLM model, Github MCP and RAG
+│   │   └── ...
+│   ├── enums/ #The categories the LLM produces to categorise a review
+│   │   └── ...
+│   ├── logging_helper/ #Helper to output logs to console/elsewhere
+│   │   └── ...
+│   ├── RAG_Data/ #Historic review scores are saved here
+│   │   └── ...
+│   ├── __init__.py
+│   ├── app.py
+│   └── review_scorer.py
+├── tests/ #Tests for the ReviewScorer code
+│   ├── test_review_scorer.py
+├── .env_template
+├── dev-requirements.txt
+├── pyproject.toml
+├── README.md
+└── ...
