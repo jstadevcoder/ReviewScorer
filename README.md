@@ -40,6 +40,14 @@ Then the review scoring process is run in 2 sequences
     -The LLM outputs the score of a comment in a structured output
     -The score is then added to the RAG and saved to a file
 
+## Usage
+
+uv run ./ReviewScorer/app.py [-h] [--reviewUrl REVIEWURL]
+
+options:
+  -h, --help            Show this help message and exit
+  --reviewUrl REVIEWURL The review Url to perform a review on.
+
 ## Contributing
 
 Any contributions are welcome.
